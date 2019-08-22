@@ -83,7 +83,7 @@ public abstract class ApplicationBase
     {
         LdtpUtils.logInfo("Opening Application: " + Arrays.asList(command));
         runProcess(command);
-        waitForApplicationWindow(getWaitWindow(), true);
+        //waitForApplicationWindow(getWaitWindow(), true);
         return this;
     }
 
@@ -260,6 +260,7 @@ public abstract class ApplicationBase
     public void focus()
     {
         logger.info("Focusing: " + getWaitWindow());
+        getLdtp().setWindowName(getWaitWindow());
         getLdtp().activateWindow(getWaitWindow());
     }
 
@@ -279,7 +280,7 @@ public abstract class ApplicationBase
      * @throws IOException
      * @author Paul Brodner
      */
-    public Ldtp waitForApplicationWindow(String windowName, boolean defineGetLDTP) throws Exception
+    public Ldtp waitForApplicationWindow(String windowName, boolean defineGetLDTP)
     {
         Ldtp _ldtp = initializeLdtp();
         int retries = 0;

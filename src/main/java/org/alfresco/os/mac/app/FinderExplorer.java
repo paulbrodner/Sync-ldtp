@@ -7,6 +7,7 @@
  */
 package org.alfresco.os.mac.app;
 
+import com.cobra.ldtp.Ldtp;
 import org.alfresco.exceptions.WindowNotOpenedException;
 import org.alfresco.os.mac.utils.AlertDialog;
 import org.alfresco.os.mac.utils.KeyboardShortcut;
@@ -21,6 +22,9 @@ import java.io.File;
 public class FinderExplorer extends KeyboardShortcut
 {
     private static Logger logger = Logger.getLogger(FinderExplorer.class);
+    private final String syncExtension = "cbo2";
+    private final String syncNowMenu = "mnuSyncNow";
+    private final String ALFRESCO_EXTENSION = "com.alfresco.AlfrescoDesktopSync.AlfrescoSyncExtension";
 
     /**
      * Initialize the FinderExplorer window for Mac Opening first the Documents folder of the current user
@@ -86,7 +90,23 @@ public class FinderExplorer extends KeyboardShortcut
      */
     public FinderExplorer openApplication()
     {
+        setWaitWindow("frmDocuments");
         super.openApplication();
+        waitForApplicationWindow(getWaitWindow(), true);
+        setViewLayout(LayoutView.LIST);
+        return this;
+    }
+
+    public FinderExplorer openFinder(String path)
+    {
+        String name = new File(path).getName();
+        if(name.startsWith("."))
+        {
+            name = name.replaceFirst(".", "");
+        }
+        setWaitWindow("frm" + name);
+        LdtpUtils.executeOnMac("open " + path);
+        waitForApplicationWindow(getWaitWindow(), true);
         setViewLayout(LayoutView.LIST);
         return this;
     }
@@ -101,18 +121,16 @@ public class FinderExplorer extends KeyboardShortcut
     public void closeExplorer()
     {
         logger.info("Close Explorer Window.");
-        LdtpUtils.waitToLoopTime(1);
         getLdtp().generateKeyEvent("<command>w");
         setWaitWindow("frmDocuments");
     }
 
-    public void closeExplorer(String windowName) throws Exception
+    public void closeExplorer(String windowName)
     {
         logger.info(String.format("Close Explorer Window of %s.", windowName));
-        waitForWindow(windowName);
         getLdtp().setWindowName(windowName);
         getLdtp().activateWindow(windowName);
-        waitForWindow(windowName);
+        LdtpUtils.waitToLoopTime(1);
         getLdtp().generateKeyEvent("<option><command>w");
     }
 
@@ -137,6 +155,25 @@ public class FinderExplorer extends KeyboardShortcut
         logger.info("Open Folder: " + folderPath.getPath());
         getLdtp().generateKeyEvent("<shift><command>g");
         pasteString(folderPath.getPath());
+        getLdtp().generateKeyEvent("<enter>");
+        focus(folderPath);
+        if(folderPath.isFile())
+        {
+            waitForWindow(folderPath.getParentFile().getName());
+            getLdtp().setWindowName(folderPath.getParentFile().getName());
+        }
+        else
+        {
+            waitForWindow(folderPath.getName());
+            getLdtp().setWindowName(folderPath.getName());
+        }
+    }
+
+    public void openFolderByTypingPath(File folderPath) throws Exception
+    {
+        logger.info("Open Folder: " + folderPath.getPath());
+        getLdtp().generateKeyEvent("<shift><command>g");
+        getLdtp().generateKeyEvent(folderPath.getPath());
         getLdtp().generateKeyEvent("<enter>");
         focus(folderPath);
         if(folderPath.isFile())
@@ -203,6 +240,7 @@ public class FinderExplorer extends KeyboardShortcut
         logger.info("Deleting folder:" + folderPath.getPath());
         openFolder(folderPath);
         goToEnclosingFolder();
+        getLdtp().setWindowName(folderPath.getParentFile().getName());
         cmdDelete();
     }
 
@@ -217,9 +255,9 @@ public class FinderExplorer extends KeyboardShortcut
         logger.info("Move Folder[" + source.getPath() + "] to:" + destination.getPath());
         openFolder(source);
         goToEnclosingFolder();
-        LdtpUtils.waitToLoopTime(2);
+        LdtpUtils.waitToLoopTime(1);
         cmdCopy();
-        openFolder(destination);
+        openFolderByTypingPath(destination);
         cmdMove();
     }
 
@@ -228,10 +266,8 @@ public class FinderExplorer extends KeyboardShortcut
         logger.info(String.format("Copy folder [%s] to [%s]", source.getPath(), destination.getPath()));
         openFolder(source);
         goToEnclosingFolder();
-        LdtpUtils.waitToLoopTime(1);
         cmdCopy();
-        openFolder(destination);
-        LdtpUtils.waitToLoopTime(1);
+        openFolderByTypingPath(destination);
         cmdPaste();
     }
 
@@ -256,6 +292,7 @@ public class FinderExplorer extends KeyboardShortcut
      * Restore any deleted Folder
      * 
      * @param folder
+     * @deprecated
      */
     public void restoreDeletedFolder(File folder) throws Exception
     {
@@ -287,6 +324,11 @@ public class FinderExplorer extends KeyboardShortcut
         openFolder(file);
     }
 
+    public boolean isContentDisplayed(File file)
+    {
+        return getLdtp().objectExist(file.getName()) == 1;
+    }
+
     /**
      * Delete a file
      * 
@@ -296,7 +338,7 @@ public class FinderExplorer extends KeyboardShortcut
     {
         logger.info("Delete File: " + file.getPath());
         selectFile(file);
-        cmdDelete();
+
     }
 
     /**
@@ -310,8 +352,16 @@ public class FinderExplorer extends KeyboardShortcut
         logger.info("Move File[" + source.getPath() + "] to folder:" + destinationFolder.getPath());
         selectFile(source);
         cmdCopy();
-        openFolder(destinationFolder);
+        openFolderByTypingPath(destinationFolder);
         cmdMove();
+    }
+
+    public void replaceIfExists() throws Exception
+    {
+        Ldtp replaceDialog = new Ldtp("frmCopy");
+        LdtpUtils.waitForWindowPartialName(replaceDialog, "frmCopy");
+        replaceDialog.click("btnReplace");
+        waitUntilWindowIsClosed("frmCopy");
     }
 
     /**
@@ -325,7 +375,7 @@ public class FinderExplorer extends KeyboardShortcut
         logger.info(String.format("Copy file {%s} to {%s}.", source.getPath(), destinationFolder.getPath()));
         selectFile(source);
         cmdCopy();
-        openFolder(destinationFolder);
+        openFolderByTypingPath(destinationFolder);
         cmdPaste();
     }
 
@@ -349,6 +399,7 @@ public class FinderExplorer extends KeyboardShortcut
      * Restore any deleted files
      * 
      * @param filename
+     * @deprecated
      */
     public void restoreDeletedFile(File filename) throws Exception
     {
@@ -392,7 +443,7 @@ public class FinderExplorer extends KeyboardShortcut
         {
             moveFolder(contentToMove, newLocation);
         }
-
+        getLdtp().setWindowName(newLocation.getName());
     }
 
     /**
@@ -408,7 +459,7 @@ public class FinderExplorer extends KeyboardShortcut
         {
             copyFolder(contentToMove, newLocation);
         }
-
+        getLdtp().setWindowName(newLocation.getName());
     }
 
     /**
@@ -428,28 +479,23 @@ public class FinderExplorer extends KeyboardShortcut
     /**
      * delete content
      */
-    public void deleteContent(File orginialContent) throws Exception
+    public void deleteContent(File content)
     {
-        
-        if (orginialContent.isFile())
-        {
-            deleteFile(orginialContent);
-        }
-        else
-        {
-            logger.info("this is for folder");
-            deleteFolder(orginialContent);
-        }
+        getLdtp().waitTillGuiExist(content.getName());
+        getLdtp().click(content.getName());
+        cmdDelete();
     }
-    /**
-     * move when file is open 
-     * 
-     */
-    public void moveFileWhenFolderOpen(File contentToMove, File newLocation) throws Exception
+
+    public void clickSyncNow()
     {
-        cmdAll();
-        cmdCopy();
-        openFolder(newLocation);
-        cmdMove();
+        getLdtp().activateWindow(getWaitWindow());
+        if(getLdtp().objectExist(syncExtension) == 0)
+        {
+            LdtpUtils.executeOnMac(String.format("pluginkit -e use -i %s", ALFRESCO_EXTENSION));
+        }
+        getLdtp().waitTillGuiExist(syncExtension);
+        getLdtp().click(syncExtension);
+        getLdtp().waitTillGuiExist(syncNowMenu);
+        getLdtp().click(syncNowMenu);
     }
 }

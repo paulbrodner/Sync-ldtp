@@ -133,23 +133,19 @@ public class LdtpUtils
     public static void waitForObject(Ldtp ldtp, String objectName)
     {
         int counter = 0;
-        int exists = 0;
+        int exists;
 
         while (counter < RETRY_COUNT)
         {
             exists = ldtp.objectExist(objectName);
             if (exists == 1)
+            {
                 break;
+            }
             else
             {
                 counter++;
-                try
-                {
-                    ldtp.wait(1);
-                }
-                catch (InterruptedException e)
-                {
-                }
+                waitToLoopTime(1);
             }
         }
     }
@@ -242,6 +238,7 @@ public class LdtpUtils
      */
     public static List<String> executeOnWin(String command)
     {
+        logger.info("Execute command: " + command);
         ArrayList<String> lines = new ArrayList<String>();
         try
         {
@@ -272,16 +269,15 @@ public class LdtpUtils
         ArrayList<String> lines = new ArrayList<String>();
         try
         {
-            System.out.println("command " + command);
+            logger.info("command " + command);
             String[] com = {"/bin/sh", "-c" , command};
             Process p = Runtime.getRuntime().exec(com);
             p.waitFor();
             BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-
             String line;
             while ((line = reader.readLine()) != null)
             {
-                    lines.add(line);
+                lines.add(line);
             }
         }
         catch (IOException e1)
@@ -359,7 +355,6 @@ public class LdtpUtils
                 results += c;
             }
         }
-
         return results;
     }
 
@@ -383,15 +378,15 @@ public class LdtpUtils
     /**
      * We will wait until the <seconds> are passed from current run
      * 
-     * @param millseconds
+     * @param seconds to wait
      * @throws Exception 
      */
-    public static void waitForElement(long millseconds) 
+    public static void waitForElement(int seconds)
     {
         try
         {
-        logInfo("Waiting (in loops) for: " + millseconds/1000 + " second(s).");
-        Thread.sleep(millseconds);
+            logInfo("Waiting (in loops) for: " + seconds + " second(s).");
+            waitToLoopTime(seconds);
         }
         catch (Exception e)
         {
@@ -424,8 +419,8 @@ public class LdtpUtils
             {
              	return new File(getHomeFolder(), "Documents");
             }
-           	else
-          	{
+            else
+            {
                 return new File(getHomeFolder(), "Documents");
             }
         }
@@ -847,13 +842,12 @@ public class LdtpUtils
      */
     public static boolean isWindowOpened(Ldtp ldtp, String windowName)
     {
-        String[] windows = null;
         boolean isOpened = false;
-        windows = ldtp.getWindowList();
+        String[] windows = ldtp.getWindowList();
         windowName = windowName.toLowerCase();
-        for (int i = 0; i < windows.length; i++)
+        for (String window : windows)
         {
-            if (windows[i].toLowerCase().contains(windowName))
+            if (window.toLowerCase().contains(windowName))
             {
                 isOpened = true;
                 break;
@@ -869,6 +863,6 @@ public class LdtpUtils
      */
     public static void openFile(File file)
     {
-        LdtpUtils.executeOnWin("start " + file.getPath());       
+        LdtpUtils.executeOnWin("start " + file.getPath());
     }
 }
